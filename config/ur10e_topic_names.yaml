@@ -1,0 +1,5 @@
+# Force Sensor
+topic_force_sensor: "/wrench"
+
+# Joint State Feedback
+topic_joint_states: "/joint_states"
