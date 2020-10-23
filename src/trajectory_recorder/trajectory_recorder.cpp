@@ -86,12 +86,12 @@ bool trajectory_recorder_class::Load_Trajectory_Service_Callback (trajectory_rec
 //----------------------------------------------------- FUNCTIONS ------------------------------------------------------//
 
 
-void trajectory_recorder_class::record_trajectory (std::string output_csv, std::vector<sensor_msgs::JointState> *trajectory) {
+void trajectory_recorder_class::record_trajectory (std::string output_csv) {
 
     ROS_INFO("Start Recording");
 
-    std::vector<sensor_msgs::JointState> traj = *trajectory;
-    traj.clear();
+    std::vector<sensor_msgs::JointState> trajectory;
+    trajectory.clear();
 
     auto start_point = std::chrono::system_clock::now();
     std::time_t start = std::chrono::system_clock::to_time_t(start_point);
@@ -104,7 +104,7 @@ void trajectory_recorder_class::record_trajectory (std::string output_csv, std::
         // Append New Data
         if (new_data_received && start_registration) {
         
-            traj.push_back(joint_state);
+            trajectory.push_back(joint_state);
             new_data_received = false;
         
         }
@@ -116,7 +116,7 @@ void trajectory_recorder_class::record_trajectory (std::string output_csv, std::
     auto stop_point = std::chrono::system_clock::now();
     std::chrono::duration<double> duration = stop_point - start_point;
 
-    save_trajectory(output_csv, traj, start, duration);
+    save_trajectory(output_csv, trajectory, start, duration);
 
 }
 
@@ -185,7 +185,7 @@ void trajectory_recorder_class::spinner (void) {
 
     ros::spinOnce();
 
-    if (start_registration) {record_trajectory(output_file, &joint_state_vector);}
+    if (start_registration) {record_trajectory(output_file);}
     else if (load_registration) {load_trajectory(input_file);}
     
 }

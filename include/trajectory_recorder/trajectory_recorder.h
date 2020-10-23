@@ -52,7 +52,7 @@ class trajectory_recorder_class {
         bool Stop_Registration_Service_Callback (std_srvs::TriggerRequest &req, std_srvs::TriggerResponse &res);
         bool Load_Trajectory_Service_Callback (trajectory_recorder::String::Request &req, trajectory_recorder::String::Response &res);
 
-        void record_trajectory (std::string output_csv, std::vector<sensor_msgs::JointState> *trajectory);
+        void record_trajectory (std::string output_csv);
         void save_trajectory (std::string output_csv, std::vector<sensor_msgs::JointState>, std::time_t start_time, std::chrono::duration<double> elapsed_time);
         std::vector<sensor_msgs::JointState> load_trajectory (std::string input_csv);
 
