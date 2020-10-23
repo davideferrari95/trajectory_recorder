@@ -134,17 +134,14 @@ void trajectory_recorder_class::save_trajectory (std::string output_csv, std::ve
     std::ofstream save(save_file);
     ROS_WARN_STREAM("Output File:  " << output_csv << ".csv");
 
-    // for(char& c : std::string(std::ctime(&start_time))) {std::cout << c;} std::cout << "pippo";
+    // Get Date and Time
     std::string date_time = std::string(std::ctime(&start_time));
     date_time.erase(date_time.size()-1);
-    std::cout << "2" << std::endl;
-    unsigned int size = date_time.size(); std::cout << size << std::endl;
-    for(char& c : date_time) {std::cout << c;} std::cout << "pippo";
-    // for(unsigned int i = 0; i < size; ++i) {std::cout << date_time[i];} std::cout << "pippo";
+    // for(char& c : date_time) {std::cout << c;} std::cout << std::endl;
 
     // First Row: time saving description
     save << "Trajectory Recorded at ,";
-    for(char& c : std::string(std::ctime(&start_time))) {save << c;}
+    for(char& c : date_time) {save << c;};
     save << ",Duration: " << elapsed_time.count() << "s\n\n";
 
     // Second Row: position or velocity

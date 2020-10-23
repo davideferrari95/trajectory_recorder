@@ -11,13 +11,6 @@ Launch Node:
 roslaunch trajectory_recorder trajectory_recorder.launch
 ```
 
-Include Library:
-
-
-```
-#include trajectory_recorder.h
-```
-
 ## Version
 
 * **ROS:** Melodic+
