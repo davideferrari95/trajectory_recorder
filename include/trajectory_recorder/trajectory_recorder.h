@@ -15,7 +15,12 @@
 
 #include "std_srvs/Trigger.h"
 #include "trajectory_recorder/String.h"
+#include "trajectory_recorder/Load_Trajectory.h"
 
+struct loaded_trajectory {
+    std::string time_description;
+    std::vector<sensor_msgs::JointState> trajectory;
+};
 
 class trajectory_recorder_class {
 
@@ -39,22 +44,20 @@ class trajectory_recorder_class {
         ros::ServiceServer start_registration_service, stop_registration_service, load_trajectory_service;
 
         bool use_ur_real_robot;
-        bool start_registration, load_registration;
-        bool new_data_received;
+        bool start_registration, new_data_received;
 
         sensor_msgs::JointState joint_state;
-        std::vector<sensor_msgs::JointState> joint_state_vector;
-        std::string input_file, output_file;
+        std::string output_file;
 
         void joint_states_Callback (const sensor_msgs::JointState::ConstPtr &);
 
         bool Start_Registration_Service_Callback (trajectory_recorder::String::Request &req, trajectory_recorder::String::Response &res);
         bool Stop_Registration_Service_Callback (std_srvs::TriggerRequest &req, std_srvs::TriggerResponse &res);
-        bool Load_Trajectory_Service_Callback (trajectory_recorder::String::Request &req, trajectory_recorder::String::Response &res);
+        bool Load_Trajectory_Service_Callback (trajectory_recorder::Load_Trajectory::Request &req, trajectory_recorder::Load_Trajectory::Response &res);
 
         void record_trajectory (std::string output_csv);
         void save_trajectory (std::string output_csv, std::vector<sensor_msgs::JointState>, std::time_t start_time, std::chrono::duration<double> elapsed_time);
-        std::vector<sensor_msgs::JointState> load_trajectory (std::string input_csv);
+        loaded_trajectory load_trajectory (std::string input_csv);
 
 };
 

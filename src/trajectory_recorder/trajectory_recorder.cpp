@@ -22,7 +22,6 @@ trajectory_recorder_class::trajectory_recorder_class(
 
     // Initializing the Class Variables
     start_registration = false;
-    load_registration = false;
     new_data_received = false;
 
 }
@@ -72,11 +71,15 @@ bool trajectory_recorder_class::Stop_Registration_Service_Callback (std_srvs::Tr
 
 }
 
-bool trajectory_recorder_class::Load_Trajectory_Service_Callback (trajectory_recorder::String::Request &req, trajectory_recorder::String::Response &res) {
+bool trajectory_recorder_class::Load_Trajectory_Service_Callback (trajectory_recorder::Load_Trajectory::Request &req, trajectory_recorder::Load_Trajectory::Response &res) {
 
-    load_registration = true;
-    input_file = req.message_data;
-    
+    std::string input_file = req.message_data;
+
+    loaded_trajectory data = load_trajectory(input_file);
+
+    res.time_description = data.time_description;
+    res.trajectory = data.trajectory;
+
     res.success = true;
     return true;
 
@@ -144,10 +147,12 @@ void trajectory_recorder_class::save_trajectory (std::string output_csv, std::ve
     for(char& c : date_time) {save << c;};
     save << ",Duration: " << elapsed_time.count() << "s\n\n";
 
-    // Second Row: position or velocity
+    // Second Row: Empty
+
+    // Third Row: position or velocity
     save << "Position,Position,Position,Position,Position,Position,Velocity,Velocity,Velocity,Velocity,Velocity,Velocity\n";
 
-    // Third Row: joint name (twice)
+    // Fourth Row: joint name (twice)
     for (unsigned int i = 0; i < 12; i++) {save << trajectory[0].name[i%6] << ",";}
     save << "\n";
 
@@ -170,10 +175,92 @@ void trajectory_recorder_class::save_trajectory (std::string output_csv, std::ve
 
 }
 
-std::vector<sensor_msgs::JointState> trajectory_recorder_class::load_trajectory (std::string input_csv) {
+loaded_trajectory trajectory_recorder_class::load_trajectory (std::string input_csv) {
 
-    load_registration = false;
+    loaded_trajectory data;
+    std::vector<std::string> join_names;
 
+    // Get ROS Package Path
+    std::string package_path = ros::package::getPath("trajectory_recorder");
+    ROS_INFO_STREAM_ONCE("Package Path:  " << package_path);
+    std::string load_file = package_path + "/records/" + input_csv + ".csv";
+
+    // IfStream Creation
+    std::ifstream load(load_file);
+    ROS_WARN_STREAM("Input File:  " << input_csv << ".csv");
+
+    // Make sure the file is open
+    if(!load.is_open()) throw std::runtime_error("Could not open file");
+
+    if (load.good()) {
+
+        std::string line, word;
+        std::vector<std::string> line_vector;
+        line_vector.clear();
+
+        // Extract First Line & Create a StringStream from Line
+        std::getline(load, line);
+        ROS_DEBUG_STREAM("First Line: " << line);
+        std::stringstream ss(line);
+
+        // First Line: time saving description ("Trajectory Recorded at , date_time, Duration: elapsed_time")
+        while(std::getline(ss, word, ',')) {line_vector.push_back(word);}
+        data.time_description = line_vector[0] + line_vector[1] + "  " + line_vector[2];
+        ROS_INFO_STREAM("Time Saving: " << data.time_description);
+        line_vector.clear();
+
+        // Extract Second Line: Empty
+        std::getline(load, line);
+        ROS_DEBUG_STREAM("Second Line: " << line);
+        
+        // Extract Third Line: Position or Velocity
+        std::getline(load, line);
+        ROS_DEBUG_STREAM("Third Line: " << line);
+
+        // Extract Fourth Line & Create a StringStream from Line
+        std::getline(load, line);
+        ROS_DEBUG_STREAM("Fourth Line: " << line);
+        ss = std::stringstream(line);
+        
+        // Fourth Line: : Joint Name (twice)
+        while(std::getline(ss, word, ',')) {line_vector.push_back(word);}
+        for (unsigned int i = 0; i < 6; i++) {join_names.push_back(line_vector[i]);}
+        ROS_INFO_STREAM("Joint Names: " << join_names[0] << ", " << join_names[1] << ", " << join_names[2] << ", " << join_names[3] << ", " << join_names[4] << ", " << join_names[5]);
+        line_vector.clear();
+
+        // Extract Other Lines: Trajectory Positions and Velocities
+        while (std::getline(load, line)) {
+
+            if (line == "") {break;}
+
+            sensor_msgs::JointState trajectory_temp;
+
+            // Create StringStream from Line
+            ss = std::stringstream(line);
+            
+            // Separate Cell witj ','
+            while(std::getline(ss, word, ',')) {line_vector.push_back(word);}
+
+            // Assign Joint Names, Positions and Velocities
+            for (unsigned int i = 0; i < 6; i++) {
+                trajectory_temp.name.push_back(join_names[i]);
+                trajectory_temp.position.push_back(std::stod(line_vector[i]));
+                trajectory_temp.velocity.push_back(std::stod(line_vector[i+6]));
+            }
+
+            // Encode in Trajectory Vector
+            data.trajectory.push_back(trajectory_temp);
+
+            // Clear Variables
+            line_vector.clear();
+
+        }
+
+    }
+
+    load.close();
+
+    return data;
 
 }
 
@@ -186,6 +273,5 @@ void trajectory_recorder_class::spinner (void) {
     ros::spinOnce();
 
     if (start_registration) {record_trajectory(output_file);}
-    else if (load_registration) {load_trajectory(input_file);}
     
 }
