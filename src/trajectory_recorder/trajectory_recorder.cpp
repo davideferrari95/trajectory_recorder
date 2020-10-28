@@ -149,15 +149,19 @@ void trajectory_recorder_class::save_trajectory (std::string output_csv, std::ve
 
     // Second Row: Empty
 
-    // Third Row: position or velocity
-    save << "Position,Position,Position,Position,Position,Position,Velocity,Velocity,Velocity,Velocity,Velocity,Velocity\n";
+    // Third Row: time stamp or position or velocity
+    save << "Time Stamp,Time Stamp,Position,Position,Position,Position,Position,Position,Velocity,Velocity,Velocity,Velocity,Velocity,Velocity\n";
 
-    // Fourth Row: joint name (twice)
+    // Fourth Row: time stamp and joint name (twice)
+    save << "seconds" << "," << "nseconds" << ",";
     for (unsigned int i = 0; i < 12; i++) {save << trajectory[0].name[i%6] << ",";}
     save << "\n";
 
-    // Other Rows: joint positions and velocities
+    // Other Rows: time stamp(sec, nsec) and joint positions & velocities
     for (unsigned int i = 0; i < trajectory.size(); i++) {
+
+        // Time Stamp
+        save << trajectory[i].header.stamp.sec << "," << trajectory[i].header.stamp.nsec << ",";
 
         // Joint Positions
         for (unsigned int j = 0; j < trajectory[i].position.size(); j++) {save << trajectory[i].position[j] << ",";}
@@ -213,7 +217,7 @@ loaded_trajectory trajectory_recorder_class::load_trajectory (std::string input_
         std::getline(load, line);
         ROS_DEBUG_STREAM("Second Line: " << line);
         
-        // Extract Third Line: Position or Velocity
+        // Extract Third Line: Time Stamp or Position or Velocity
         std::getline(load, line);
         ROS_DEBUG_STREAM("Third Line: " << line);
 
@@ -222,13 +226,14 @@ loaded_trajectory trajectory_recorder_class::load_trajectory (std::string input_
         ROS_DEBUG_STREAM("Fourth Line: " << line);
         ss = std::stringstream(line);
         
-        // Fourth Line: : Joint Name (twice)
+        // Fourth Line: Time Stamp or Joint Name (twice)
         while(std::getline(ss, word, ',')) {line_vector.push_back(word);}
-        for (unsigned int i = 0; i < 6; i++) {join_names.push_back(line_vector[i]);}
+        std::string time_stamp = line_vector[0] + " " + line_vector[1];
+        for (unsigned int i = 0; i < 6; i++) {join_names.push_back(line_vector[i+2]);}
         ROS_INFO_STREAM("Joint Names: " << join_names[0] << ", " << join_names[1] << ", " << join_names[2] << ", " << join_names[3] << ", " << join_names[4] << ", " << join_names[5]);
         line_vector.clear();
 
-        // Extract Other Lines: Trajectory Positions and Velocities
+        // Extract Other Lines: Time Stamp and Trajectory Positions & Velocities
         while (std::getline(load, line)) {
 
             if (line == "") {break;}
@@ -241,11 +246,15 @@ loaded_trajectory trajectory_recorder_class::load_trajectory (std::string input_
             // Separate Cell witj ','
             while(std::getline(ss, word, ',')) {line_vector.push_back(word);}
 
-            // Assign Joint Names, Positions and Velocities
+            // Assign Time Stamp (sec, nsec)
+            trajectory_temp.header.stamp.sec  = std::stod(line_vector[0]);
+            trajectory_temp.header.stamp.nsec = std::stod(line_vector[1]);
+
+            // Assign Joint Names, Positions (line_vector[2-7]) and Velocities (line_vector[8-13])
             for (unsigned int i = 0; i < 6; i++) {
                 trajectory_temp.name.push_back(join_names[i]);
-                trajectory_temp.position.push_back(std::stod(line_vector[i]));
-                trajectory_temp.velocity.push_back(std::stod(line_vector[i+6]));
+                trajectory_temp.position.push_back(std::stod(line_vector[i+2]));
+                trajectory_temp.velocity.push_back(std::stod(line_vector[i+8]));
             }
 
             // Encode in Trajectory Vector
