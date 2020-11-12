@@ -135,7 +135,7 @@ void trajectory_recorder_class::save_trajectory (std::string output_csv, std::ve
 
     // OfStream Creation
     std::ofstream save(save_file);
-    ROS_WARN_STREAM("Output File:  " << output_csv << ".csv");
+    ROS_WARN_STREAM("Output File:  \"" << output_csv << ".csv\"");
 
     // Get Date and Time
     std::string date_time = std::string(std::ctime(&start_time));
@@ -191,10 +191,10 @@ loaded_trajectory trajectory_recorder_class::load_trajectory (std::string input_
 
     // IfStream Creation
     std::ifstream load(load_file);
-    ROS_WARN_STREAM("Input File:  " << input_csv << ".csv");
+    ROS_WARN_STREAM("Input File:  \"" << input_csv << ".csv\"");
 
     // Make sure the file is open
-    if(!load.is_open()) throw std::runtime_error("Could not open file");
+    if(!load.is_open()) {ROS_ERROR("Could not open file \"%s.csv\"", input_csv.c_str()); data.time_description = "File Error";}
 
     if (load.good()) {
 
