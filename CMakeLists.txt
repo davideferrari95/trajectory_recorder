@@ -6,11 +6,16 @@ add_compile_options(-std=c++14)
 find_package(catkin REQUIRED COMPONENTS
   roscpp
   roslib
-	std_msgs
-	trajectory_msgs
+  std_msgs
+  trajectory_msgs
   geometry_msgs
   sensor_msgs
   message_generation
+)
+
+add_message_files(
+  FILES
+  parameter_msg.msg
 )
 
 add_service_files(
@@ -23,6 +28,7 @@ generate_messages(
   DEPENDENCIES
   std_msgs
   sensor_msgs
+  ${PROJECT_NAME}
 )
 
 catkin_package(

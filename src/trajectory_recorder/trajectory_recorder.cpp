@@ -14,6 +14,7 @@ trajectory_recorder_class::trajectory_recorder_class(
 
     // ---- ROS SUBSCRIBERS ---- //
     joint_states_subscriber = nh.subscribe(topic_joint_states_subscriber, 1, &trajectory_recorder_class::joint_states_Callback, this);
+    extra_data_subscriber = nh.subscribe("/trajectory_recorder/trajectory_extra_data", 1, &trajectory_recorder_class::extra_data_Callback, this);
 
     // ---- ROS SERVICES ---- //
     start_registration_service = nh.advertiseService("/trajectory_recorder/start_registration_service", &trajectory_recorder_class::Start_Registration_Service_Callback, this);
@@ -52,6 +53,13 @@ void trajectory_recorder_class::joint_states_Callback (const sensor_msgs::JointS
     
 }
 
+void trajectory_recorder_class::extra_data_Callback (const trajectory_recorder::parameter_msg::ConstPtr &msg) {
+
+    extra_data = *msg;
+    extra_data_received = true;
+    
+}
+
 bool trajectory_recorder_class::Start_Registration_Service_Callback (trajectory_recorder::String::Request &req, trajectory_recorder::String::Response &res) {
     
     start_registration = true;
@@ -79,6 +87,7 @@ bool trajectory_recorder_class::Load_Trajectory_Service_Callback (trajectory_rec
 
     res.time_description = data.time_description;
     res.trajectory = data.trajectory;
+    res.extra_data = data.extra_data;
 
     res.success = true;
     return true;
@@ -94,7 +103,9 @@ void trajectory_recorder_class::record_trajectory (std::string output_csv) {
     ROS_INFO("Start Recording");
 
     std::vector<sensor_msgs::JointState> trajectory;
+    std::vector<trajectory_recorder::parameter_msg> trajectory_extra_data;
     trajectory.clear();
+    trajectory_extra_data.clear();
 
     auto start_point = std::chrono::system_clock::now();
     std::time_t start = std::chrono::system_clock::to_time_t(start_point);
@@ -105,11 +116,28 @@ void trajectory_recorder_class::record_trajectory (std::string output_csv) {
         ros::spinOnce();
 
         // Append New Data
-        if (new_data_received && start_registration) {
+        if (new_data_received) {
         
             trajectory.push_back(joint_state);
             new_data_received = false;
         
+        }
+
+        // Append Extra Data (Accelerate, Decelerate, Force[newton_value])
+        if (extra_data_received) {
+        
+            // Append Extra Data Received
+            trajectory_extra_data.push_back(extra_data);
+            extra_data_received = false;
+        
+        } else {
+
+            // Append Void-Extra Data
+            trajectory_recorder::parameter_msg void_data;
+            void_data.parameter_name = "";
+            void_data.parameter_value = 0;
+            trajectory_extra_data.push_back(void_data);
+
         }
 
     }
@@ -119,11 +147,11 @@ void trajectory_recorder_class::record_trajectory (std::string output_csv) {
     auto stop_point = std::chrono::system_clock::now();
     std::chrono::duration<double> duration = stop_point - start_point;
 
-    save_trajectory(output_csv, trajectory, start, duration);
+    save_trajectory(output_csv, trajectory, start, duration, trajectory_extra_data);
 
 }
 
-void trajectory_recorder_class::save_trajectory (std::string output_csv, std::vector<sensor_msgs::JointState> trajectory, std::time_t start_time, std::chrono::duration<double> elapsed_time) {
+void trajectory_recorder_class::save_trajectory (std::string output_csv, std::vector<sensor_msgs::JointState> trajectory, std::time_t start_time, std::chrono::duration<double> elapsed_time, std::vector<trajectory_recorder::parameter_msg> trajectory_extra_data) {
 
     // Rename Output File when is Empty
     if (output_csv == "") {output_csv = "trajectory_log_default";}
@@ -150,14 +178,14 @@ void trajectory_recorder_class::save_trajectory (std::string output_csv, std::ve
     // Second Row: Empty
 
     // Third Row: time stamp or position or velocity
-    save << "Time Stamp,Time Stamp,Position,Position,Position,Position,Position,Position,Velocity,Velocity,Velocity,Velocity,Velocity,Velocity\n";
+    save << "Time Stamp,Time Stamp,Position,Position,Position,Position,Position,Position,Velocity,Velocity,Velocity,Velocity,Velocity,Velocity,Extra Data,Extra Data\n";
 
     // Fourth Row: time stamp and joint name (twice)
-    save << "seconds" << "," << "nseconds" << ",";
+    save << "seconds,nseconds,";
     for (unsigned int i = 0; i < 12; i++) {save << trajectory[0].name[i%6] << ",";}
-    save << "\n";
+    save << "name,value" << "\n";
 
-    // Other Rows: time stamp(sec, nsec) and joint positions & velocities
+    // Other Rows: time stamp(sec, nsec), joint positions & velocities and Extra Data
     for (unsigned int i = 0; i < trajectory.size(); i++) {
 
         // Time Stamp
@@ -168,6 +196,9 @@ void trajectory_recorder_class::save_trajectory (std::string output_csv, std::ve
 
         // Joint Velocities
         for (unsigned int j = 0; j < trajectory[i].velocity.size(); j++) {save << trajectory[i].velocity[j] << ",";}
+
+        // Extra Data
+        save << trajectory_extra_data[i].parameter_name << "," << trajectory_extra_data[i].parameter_value;
 
         save << "\n";
 
@@ -217,7 +248,7 @@ loaded_trajectory trajectory_recorder_class::load_trajectory (std::string input_
         std::getline(load, line);
         ROS_DEBUG_STREAM("Second Line: " << line);
         
-        // Extract Third Line: Time Stamp or Position or Velocity
+        // Extract Third Line: Time Stamp or Position or Velocity or Extra Data
         std::getline(load, line);
         ROS_DEBUG_STREAM("Third Line: " << line);
 
@@ -233,7 +264,7 @@ loaded_trajectory trajectory_recorder_class::load_trajectory (std::string input_
         ROS_INFO_STREAM("Joint Names: " << join_names[0] << ", " << join_names[1] << ", " << join_names[2] << ", " << join_names[3] << ", " << join_names[4] << ", " << join_names[5]);
         line_vector.clear();
 
-        // Extract Other Lines: Time Stamp and Trajectory Positions & Velocities
+        // Extract Other Lines: Time Stamp, Trajectory Positions & Velocities and Extra Data
         while (std::getline(load, line)) {
 
             if (line == "") {break;}
@@ -259,6 +290,12 @@ loaded_trajectory trajectory_recorder_class::load_trajectory (std::string input_
 
             // Encode in Trajectory Vector
             data.trajectory.push_back(trajectory_temp);
+
+            // Encode Extra Data (line_vector[14-15])
+            trajectory_recorder::parameter_msg extra_data_temp;
+            extra_data_temp.parameter_name = line_vector[14];
+            extra_data_temp.parameter_value = std::stod(line_vector[15]);
+            data.extra_data.push_back(extra_data_temp);
 
             // Clear Variables
             line_vector.clear();

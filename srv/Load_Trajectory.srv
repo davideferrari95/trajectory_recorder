@@ -2,4 +2,5 @@ string message_data
 ---
 string time_description
 sensor_msgs/JointState[] trajectory
+parameter_msg[] extra_data
 bool success
