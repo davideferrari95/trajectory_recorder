@@ -120,24 +120,24 @@ void trajectory_recorder_class::record_trajectory (std::string output_csv) {
         
             trajectory.push_back(joint_state);
             new_data_received = false;
-        
-        }
 
-        // Append Extra Data (Accelerate, Decelerate, Force[newton_value])
-        if (extra_data_received) {
-        
-            // Append Extra Data Received
-            trajectory_extra_data.push_back(extra_data);
-            extra_data_received = false;
-        
-        } else {
+            // Append Extra Data (Accelerate, Decelerate, Force[newton_value])
+            if (extra_data_received) {
+            
+                // Append Extra Data Received
+                trajectory_extra_data.push_back(extra_data);
+                extra_data_received = false;
+            
+            } else {
 
-            // Append Void-Extra Data
-            trajectory_recorder::parameter_msg void_data;
-            void_data.parameter_name = "";
-            void_data.parameter_value = 0;
-            trajectory_extra_data.push_back(void_data);
+                // Append Void-Extra Data
+                trajectory_recorder::parameter_msg void_data;
+                void_data.parameter_name = "";
+                void_data.parameter_value = 0;
+                trajectory_extra_data.push_back(void_data);
 
+            }
+        
         }
 
     }
